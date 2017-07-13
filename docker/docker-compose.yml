@@ -1,0 +1,23 @@
+---
+version: '3'
+services:
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+  kafka:
+    # Build local image for support for Kafka 0.11 (2017-07-13)
+    # https://github.com/wurstmeister/kafka-docker/pull/200
+    build: ./wurstmeister-kafka-0.11
+    image: wurstmeister/kafka:0.11.0.0
+    ports:
+      - "9092:9092"
+    environment:
+      # See README for config
+      # https://hub.docker.com/r/wurstmeister/kafka/
+      KAFKA_ADVERTISED_HOST_NAME: 127.0.0.1
+      KAFKA_CREATE_TOPICS: "datasource:3:3,topic2:3:3"
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 10
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
