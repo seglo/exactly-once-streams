@@ -2,7 +2,7 @@
 
 ```
 docker exec -it docker_kafka_1 bash
-```
+``` 
 
 #### List topics
 
