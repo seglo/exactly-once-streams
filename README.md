@@ -195,7 +195,7 @@ for more details.
 * Preliminary results of Kafka's Exactly Once Processing features can handle transaction failure nicely.
 * 
 
-5. Validated Learning
+## 5. Validated Learning
 
 * Exactly Once semantics for producing messages were not possible in versions of Kafka < 0.11.0.0
 * Kafka transactions add overhead to stream processing layer.  By applying transactions to subsets of partitions it is
@@ -207,7 +207,7 @@ effort to support.
   * Flink has a compelling story for exactly-once and stream state management that pre-dates Kafka.  See snapshot and
   checkmarking features.
 
-6. Next Action
+## 6. Next Action
 
 - Re-factor as ScalaTest integration test.  Embedded Kafka or integrated docker-compose.
 - Durable snapshots for streaming state
