@@ -36,13 +36,11 @@ object FillSourceTopic extends App {
   }
   val producer = new KProducer(properties, new StringSerializer, new StringSerializer)
 
-  val graph = Source(1 to 100)
+  val graph = Source(0 until appSettings.messagesPerPartition)
       .mapConcat { n =>
-        List(
-          new KProducerRecord(appSettings.dataSourceTopic, 0, null, n.toString),
-          new KProducerRecord(appSettings.dataSourceTopic, 1, null, n.toString),
-          new KProducerRecord(appSettings.dataSourceTopic, 2, null, n.toString)
-        )
+        (0 until appSettings.partitionCount).map { partitionNumber =>
+          new KProducerRecord(appSettings.dataSourceTopic, partitionNumber, n.toString, n.toString)
+        }.toList
       }
       .runWith(seglo.impl.Producer.plainSink(producer))
 }

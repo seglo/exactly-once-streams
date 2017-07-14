@@ -12,6 +12,6 @@ lazy val `exactly-once-streams` = project.in(file("."))
       "com.typesafe.akka" %% "akka-stream" % akkaVersion,
       "org.apache.kafka" % "kafka-clients" % kafkaVersion,
       "org.typelevel" %% "cats" % "0.9.0",
-      "org.scalatest" %% "scalatest" % "3.0.1" % "test"
+      "org.scalatest" %% "scalatest" % "3.0.1"
     )
   )

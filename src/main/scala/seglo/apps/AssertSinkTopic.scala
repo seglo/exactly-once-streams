@@ -11,6 +11,7 @@ import seglo.apps.ConsumeTransformProduce.{CONSUMER_POLL_TIMEOUT, appSettings, c
 import seglo.impl.{KConsumer, KConsumerRecords, KProducer}
 
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 object AssertSinkTopic extends App {
   implicit val system = ActorSystem("ExactlyOnceApps")
@@ -34,15 +35,60 @@ object AssertSinkTopic extends App {
     p
   }
 
-  val CONSUMER_POLL_TIMEOUT = 60000L
+  val CONSUMER_POLL_TIMEOUT = 200L
 
   val consumer = new KConsumer(consumerProps, new StringDeserializer, new StringDeserializer)
   consumer.subscribe(List(appSettings.dataSinkTopic).asJava)
 
+  case class SinkState(records: List[(Int, Int, Int)], partitions: Int, messagesPerPartition: Int) {
+
+    def assert(): Boolean = {
+      import org.scalatest._
+      import Matchers._
+
+      val assertions = (0 until partitions).map { partition =>
+        val expectedPartitionRecords = (0 until messagesPerPartition).map { counter =>
+          (partition, counter, counter * 2)
+        }
+        Try {
+          /**
+            * Asserts that the generated expected records occur in order in the actual records.  Because Kafka only
+            * guarantees message order within a partition we can only assert order per partition.  ScalaTest has a nice
+            * collections matcher to help here.
+            *
+            * ScalaTest will return an `Assertion` `Succeeded` type when a matcher passes and a `TestFailedException`
+            * on failure.
+            *
+            * http://doc.scalatest.org/3.0.0/index.html#org.scalatest.Matchers@inOrderElementsOf[R](elements:scala.collection.GenTraversable[R]):org.scalatest.words.ResultOfInOrderElementsOfApplication
+            */
+          records should contain inOrderElementsOf expectedPartitionRecords
+        }
+      }
+
+      assertions.forall(_.isSuccess)
+    }
+  }
+  val stateSeed = SinkState(List[(Int,Int,Int)](), appSettings.partitionCount, appSettings.messagesPerPartition)
+
   Stream.continually(consumer.poll(CONSUMER_POLL_TIMEOUT))
     .takeWhile(_ ne null)
     .filterNot(_.isEmpty)
-    .foreach { consumerRecords =>
-      consumerRecords.iterator().asScala.foreach(println)
+
+    /**
+      * This is something that akka-streams would do well: accumulate state until some condition, then reset state.
+      * For our purposes we will just restart the the AssertSink app
+      * See an example here:
+      * http://doc.akka.io/docs/akka/snapshot/scala/stream/stream-cookbook.html#calculating-the-digest-of-a-bytestring-stream
+      */
+    .scanLeft(stateSeed) { case (sinkState, consumerRecords) =>
+      val records = consumerRecords.iterator().asScala.map { record =>
+        println(s"Partition ${record.partition()}, Key ${record.key()}, Value: ${record.value()}")
+        (record.partition(), record.key().toInt, record.value().toInt)
+      }
+      sinkState.copy(records = sinkState.records ++ records)
+    }
+    .find(_.assert())
+    .foreach { _ =>
+      println("Assertion succeeded!")
     }
 }
