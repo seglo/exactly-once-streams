@@ -13,7 +13,7 @@ import seglo.impl._
 /**
   * Fill the data source topic with an idempotent producer.
   */
-object FillTopic extends App {
+object FillSourceTopic extends App {
   implicit val system = ActorSystem("ExactlyOnceApps")
   implicit val materializer = ActorMaterializer()
 
@@ -39,9 +39,9 @@ object FillTopic extends App {
   val graph = Source(1 to 100)
       .mapConcat { n =>
         List(
-          new KRecord(appSettings.dataSourceTopic, 0, null, n.toString),
-          new KRecord(appSettings.dataSourceTopic, 1, null, n.toString),
-          new KRecord(appSettings.dataSourceTopic, 2, null, n.toString)
+          new KProducerRecord(appSettings.dataSourceTopic, 0, null, n.toString),
+          new KProducerRecord(appSettings.dataSourceTopic, 1, null, n.toString),
+          new KProducerRecord(appSettings.dataSourceTopic, 2, null, n.toString)
         )
       }
       .runWith(seglo.impl.Producer.plainSink(producer))

@@ -4,15 +4,15 @@ import java.util.{Locale, Properties}
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecords, OffsetAndMetadata}
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig}
+import org.apache.kafka.clients.consumer.{ConsumerConfig, OffsetAndMetadata}
+import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.requests.IsolationLevel
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
-import seglo.impl.{K, KConsumer, KProducer, KRecord, V}
+import seglo.impl._
 
-import scala.collection.mutable
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 object ConsumeTransformProduce extends App {
 
@@ -23,9 +23,6 @@ object ConsumeTransformProduce extends App {
     }
     offsetsToCommit.toMap.asJava
   }
-
-  implicit val system = ActorSystem("ExactlyOnceApps")
-  implicit val materializer = ActorMaterializer()
 
   val appSettings = AppSettings()
 
@@ -68,36 +65,42 @@ object ConsumeTransformProduce extends App {
     p
   }
 
+  val CONSUMER_POLL_TIMEOUT = 60000L
+
   val producer = new KProducer(producerProps)
   val consumer = new KConsumer(consumerProps, new StringDeserializer, new StringDeserializer)
   consumer.subscribe(List(appSettings.dataSourceTopic).asJava)
-
-  val CONSUMER_POLL_TIMEOUT = 60000L
-
   producer.initTransactions()
 
-  while (true) {
-    val records: ConsumerRecords[K, V] = consumer.poll(CONSUMER_POLL_TIMEOUT)
-    if (!records.isEmpty) {
-      // Start a new transaction. This will begin the process of batching the consumed records as well
-      // as an records produced as a result of processing the input records.
-      //
-      // We need to check the response to make sure that this producer is able to initiate a new transaction.
+  Stream.continually(consumer.poll(CONSUMER_POLL_TIMEOUT))
+    .takeWhile(_ ne null)
+    .filterNot(_.isEmpty)
+    .foreach { records =>
+      /**
+        * Start a new transaction. This will begin the process of batching the consumed records as well
+        * as an records produced as a result of processing the input records.
+        *
+        * We need to check the response to make sure that this producer is able to initiate a new transaction.
+        */
       producer.beginTransaction()
 
-      // Process the input records and send them to the output topic(s).
+      /**
+        * Process the input records and send them to the output topic(s).
+        */
       val outputRecords = records.iterator().asScala
         .map { cr =>
           val squared = cr.value().toInt * 2
-          new KRecord(appSettings.dataSinkTopic, cr.key(), squared.toString)
+          new KProducerRecord(appSettings.dataSinkTopic, cr.key(), squared.toString)
         }
 
       for (outputRecord <- outputRecords) {
         producer.send(outputRecord)
       }
 
-      // To ensure that the consumed and produced messages are batched, we need to commit the offsets through the
-      // producer and not the consumer.  If this returns an error, we should abort the transaction.
+      /**
+        * To ensure that the consumed and produced messages are batched, we need to commit the offsets through the
+        * producer and not the consumer.  If this returns an error, we should abort the transaction.
+        */
       try {
         producer.sendOffsetsToTransaction(
           getUncommittedOffsets(consumer),
@@ -107,10 +110,10 @@ object ConsumeTransformProduce extends App {
         case _: Exception => producer.abortTransaction()
       }
 
-      // Now that we have consumed, processed, and produced a batch of messages, let's
-      // commit the results.
-      // If this does not report success, then the transaction will be rolled back.
+      /**
+        * Now that we have consumed, processed, and produced a batch of messages, let's commit the results.
+        * If this does not report success, then the transaction will be rolled back.
+        */
       producer.commitTransaction()
     }
-  }
 }
