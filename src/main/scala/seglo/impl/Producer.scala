@@ -9,7 +9,7 @@ import scala.concurrent.{Future, Promise}
 object Producer {
   def plainSink(producer: KProducer): Sink[KProducerRecord, Future[Done]] = {
 
-    Flow[KProducerRecord].map { message =>
+    Flow[KProducerRecord].mapAsync(1) { message =>
       println(s"Producing: $message")
 
       val r = Promise[KResult[KProducerRecord]]

@@ -16,7 +16,8 @@ services:
       # See README for config
       # https://hub.docker.com/r/wurstmeister/kafka/
       KAFKA_ADVERTISED_HOST_NAME: 127.0.0.1
-      KAFKA_CREATE_TOPICS: "datasource:3:3,topic2:3:3"
+      # automatic topic creation broken, see PR
+      # KAFKA_CREATE_TOPICS: "datasource:3:3,topic2:3:3"
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 10
     volumes:

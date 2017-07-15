@@ -1,16 +1,14 @@
 package seglo.apps
 
-import java.util.{Locale, Properties}
 import java.util.Collections.singleton
+import java.util.{Locale, Properties}
 
-import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import org.apache.kafka.clients.consumer.{ConsumerConfig, OffsetAndMetadata}
 import org.apache.kafka.clients.producer.ProducerConfig
-import org.apache.kafka.common.{KafkaException, TopicPartition}
 import org.apache.kafka.common.errors.{OutOfOrderSequenceException, ProducerFencedException}
 import org.apache.kafka.common.requests.IsolationLevel
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
+import org.apache.kafka.common.{KafkaException, TopicPartition}
 import seglo.impl._
 
 import scala.collection.JavaConverters._
@@ -85,6 +83,7 @@ object ConsumeTransformProduce extends App {
   val consumer = new KConsumer(consumerProps, new StringDeserializer, new StringDeserializer)
   consumer.subscribe(List(appSettings.dataSourceTopic).asJava)
   producer.initTransactions()
+  resetToLastCommittedPositions(consumer)
 
   Stream.continually(consumer.poll(CONSUMER_POLL_TIMEOUT))
     .takeWhile(_ ne null)
@@ -104,9 +103,13 @@ object ConsumeTransformProduce extends App {
           */
         val outputRecords = records.iterator().asScala
           .map { cr =>
-            val squared = cr.value().toInt * 2
-            new KProducerRecord(appSettings.dataSinkTopic, cr.partition(), cr.key(), squared.toString)
+
+            val value = if (Seq("START", "END") contains cr.value()) s"${cr.value()}_TRANSFORM"
+            else cr.value().toInt * 2
+
+            new KProducerRecord(appSettings.dataSinkTopic, cr.partition(), cr.key(), value.toString)
           }
+
 
         for (record <- outputRecords) {
           println(s"Producing record. Partition ${record.partition()}, Key ${record.key()}, Value: ${record.value()}")
@@ -115,7 +118,7 @@ object ConsumeTransformProduce extends App {
           /**
             * Abort the transaction based on probability of message failing to send.
             */
-          if (scala.util.Random.nextDouble() <= appSettings.transactionFailureProbability) {
+          if (scala.util.Random.nextDouble() <= appSettings.messageFailureProbability) {
             throw new KafkaException("What we have here is a failure to communicate")
           }
         }

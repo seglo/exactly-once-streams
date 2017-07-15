@@ -20,4 +20,7 @@ kafka-topics.sh --zookeeper zookeeper:2181 --create --topic datasink --partition
 
 ```
 kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic datasource
+
+# consume from single partition
+kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic datasink --partition 0 --isolation-level read_committed
 ```

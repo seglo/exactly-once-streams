@@ -164,6 +164,8 @@ for more details.
 
 ## 3) Details of the experiment
 
+### Overview of components
+
 * Kafka 0.11.0.0 Brokers
   * Used a fork of the popular [wurstmeister/kafka](https://hub.docker.com/r/wurstmeister/kafka/) Kafka docker image to
   host Kafka brokers.
@@ -173,15 +175,18 @@ for more details.
   * `FillSourceTopic`
     * Uses akka-streams with custom Kafka sink for Idempotent Producer.
     * Produces integers to `datasource` topic using `StringSerializer`.  Partitions: 3, Key: String (int), Value: String (int)
+    * Produces all messages successfully and then exits.
   * `ConsumeTransformProduce`
     * Scala Streams implementation of a simple `consume->transform->produce` workflow with the new transactional support.
     * *I wanted to use reactive-kafka here, which marries together akka-streams and Kafka clients, but did not have time
      to upgrade reactive-kafka to support new Kafka release.*
     * Consumes from `datasource` topic.  Transforms elements by applying square operation to integers.
     * Produces to `datasink` topic.
-    * **Support for 0..1 probability of transformation transaction failing.  This is to demonstrate common failure scenarios
-    that require the transaction to be aborted and processing to be reset.  See `AppSettings.transactionFailureProbability`
-    configuration.**
+    * Runs continuously.  Does not stop after all messages produced.
+    * **Experiment: 0..1 probability of a producer message causing a failure which aborts transaction.  This 
+    demonstrates the resiliency of transactions within the `consume->transform->produce` operation.  Output to 
+    `datasink` topic will only be written exactly once.  Adjust probability of message failing with
+     `AppSettings.messageFailureProbability` configuration.**
   * `AssertSinkTopic`
     * Scala Streams implementation of a `READ_COMMITTED` consumer.
     * Asserts the following properties on messages in `datasink`:
@@ -189,11 +194,23 @@ for more details.
       * Ordered within a partition
       * No elements are missing
     * Uses ScalaTest Matchers
+    * Runs continuously until all assertions pass and then exits.
+    
+### Steps to run
+
+1. Start up Kafka and ZooKeeper: `cd docker`, `docker-compose up`.
+2. Start `ConsumeTransformProduce` from CLI or IntelliJ.  Wait 5 seconds.
+3. Start `AssertSinkTopic` from CLI or IntelliJ.  Wait 5 seconds.
+4. Start `FillSourceTopic` from CLI or IntelliJ.
+5. Observe output from `ConsumeTransformProduce` and wait for stability.  As transactions are aborted and retried you
+will see a lot of activity (multiple lines per second).  **This app may take anywhere from a few seconds to ~30 seconds
+depending on how many random failures occur.**  Once output is stable (no new lines) continue.
+6. Observe output from `AssertSinkTopic`.  You should see the message `Assertion succeeded!` before the program exits.
     
 ## 4. Results
 
-* Preliminary results of Kafka's Exactly Once Processing features can handle transaction failure nicely.
-* 
+* Kafka's Exactly Once Processing features can handle transaction failure.
+* Messages in `datasink` topic are written exactly once.
 
 ## 5. Validated Learning
 
