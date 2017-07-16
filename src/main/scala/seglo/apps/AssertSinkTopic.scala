@@ -79,16 +79,14 @@ object AssertSinkTopic extends App {
             } :+
             (partition, "END", "END_TRANSFORM")
 
-          Try {
-            /**
-              * Asserts that the generated expected records occur in order in the actual records.  Because Kafka only
-              * guarantees message order within a partition we can only assert order per partition.  ScalaTest has a nice
-              * collections matcher to help here.
-              *
-              * http://doc.scalatest.org/3.0.0/index.html#org.scalatest.Matchers@inOrderElementsOf[R](elements:scala.collection.GenTraversable[R]):org.scalatest.words.ResultOfInOrderElementsOfApplication
-              */
-            records should contain inOrderElementsOf expectedPartitionRecords
-          }
+          /**
+            * Asserts that the generated expected records occur in order in the actual records.  Because Kafka only
+            * guarantees message order within a partition we can only assert order per partition.  ScalaTest has a nice
+            * collections matcher to help here.
+            *
+            * http://doc.scalatest.org/3.0.0/index.html#org.scalatest.Matchers@inOrderElementsOf[R](elements:scala.collection.GenTraversable[R]):org.scalatest.words.ResultOfInOrderElementsOfApplication
+            */
+          records should contain inOrderElementsOf expectedPartitionRecords
         }
       }.isSuccess
     }
