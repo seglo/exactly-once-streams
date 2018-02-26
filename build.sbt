@@ -1,17 +1,21 @@
-lazy val akkaVersion = "2.5.3"
-lazy val kafkaVersion = "0.11.0.0"
+import Dependencies._
+import Versions._
+import sbt.ExclusionRule
 
 lazy val `exactly-once-streams` = project.in(file("."))
   .settings(
     name := "exactly-once-streams",
     version := "1.0",
-    scalaVersion := "2.12.2",
+    scalaVersion := Scala_2_12_Version,
     libraryDependencies := Seq(
-      "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-      "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
-      "com.typesafe.akka" %% "akka-stream" % akkaVersion,
-      "org.apache.kafka" % "kafka-clients" % kafkaVersion,
-      "org.typelevel" %% "cats" % "0.9.0",
-      "org.scalatest" %% "scalatest" % "3.0.1"
-    )
+      akkaActor,
+      akkaStream,
+      kafka excludeAll(ExclusionRule("org.slf4j", "slf4j-log4j12"), ExclusionRule("org.apache.zookeeper", "zookeeper")),
+      curator % "test",
+      scalaLogging % "test",
+      logback % "test",
+      akkaTestkit % "test",
+      scalaTest % "test"
+    ),
+    parallelExecution in Test := false
   )

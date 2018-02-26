@@ -3,7 +3,7 @@ package seglo
 import org.apache.kafka.clients.consumer.{ConsumerRecords, KafkaConsumer}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord, RecordMetadata}
 
-package object impl {
+package object apps {
   type K = String
   type V = String
   type KProducerRecord = ProducerRecord[K, V]

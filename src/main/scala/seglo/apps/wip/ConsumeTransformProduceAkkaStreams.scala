@@ -6,12 +6,12 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, OffsetAndMetadata}
-import org.apache.kafka.clients.producer.{ProducerConfig, RecordMetadata}
+import org.apache.kafka.clients.producer.{Callback, ProducerConfig, RecordMetadata}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.requests.IsolationLevel
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import seglo.apps.AppSettings
-import seglo.impl._
+import seglo.apps._
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -126,14 +126,16 @@ object ConsumeTransformProduceAkkaStreams extends App {
       val producerRecord = new KProducerRecord(appSettings.dataSinkTopic, record.key(), squared.toString)
       println(s"Producing: $producerRecord")
       val r = Promise[KResult[KProducerRecord]]
-      context.producer.send(producerRecord, (metadata: RecordMetadata, exception: Exception) => {
-        if (exception == null) {
-          println(s"Successfully produced: $producerRecord")
-          r.success(KResult(metadata, producerRecord))
-        } else {
-          println(s"Failed to produce: $producerRecord")
-          println(exception)
-          r.failure(exception)
+      context.producer.send(producerRecord, new Callback {
+        override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
+          if (exception == null) {
+            println(s"Successfully produced: $producerRecord")
+            r.success(KResult(metadata, producerRecord))
+          } else {
+            println(s"Failed to produce: $producerRecord")
+            println(exception)
+            r.failure(exception)
+          }
         }
       })
 
