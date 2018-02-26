@@ -1,4 +1,4 @@
-package seglo.apps
+package seglo
 
 /**
   * Created by seglo on 13/07/17.

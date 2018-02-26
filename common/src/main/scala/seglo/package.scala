@@ -1,7 +1,7 @@
 package seglo
 
 import org.apache.kafka.clients.consumer.{ConsumerRecords, KafkaConsumer}
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord, RecordMetadata}
+import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 
 package object apps {
   type K = String
@@ -10,6 +10,4 @@ package object apps {
   type KConsumerRecords = ConsumerRecords[K, V]
   type KProducer = KafkaProducer[K, V]
   type KConsumer = KafkaConsumer[K, V]
-
-  case class KResult[M](metadata: RecordMetadata, msg: M)
 }

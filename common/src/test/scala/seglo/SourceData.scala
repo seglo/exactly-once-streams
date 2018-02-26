@@ -2,23 +2,18 @@ package seglo
 
 import java.util.Properties
 
-import akka.Done
-import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import org.apache.kafka.clients.producer.{Callback, ProducerConfig, RecordMetadata}
 import org.apache.kafka.common.serialization.StringSerializer
-import seglo.apps.{AppSettings, KProducer, KProducerRecord, KResult}
+import seglo.apps._
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.duration.{FiniteDuration, MINUTES}
+import scala.concurrent.{Await, Future, Promise}
 
 object SourceData {
-  def populate(appSettings: AppSettings): Future[Done] = {
-    implicit val system = ActorSystem("ExactlyOnceApps")
-    implicit val materializer = ActorMaterializer()
-    implicit val dispatcher = system.dispatcher
+  val timeout = FiniteDuration(1, MINUTES)
 
-    val appSettings = AppSettings()
+  def populate(appSettings: AppSettings): Unit = {
+
     val properties: Properties = {
       val p = new Properties()
       p.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, classOf[StringSerializer])
@@ -50,9 +45,8 @@ object SourceData {
 
     val producer = new KProducer(properties, new StringSerializer, new StringSerializer)
 
-    val lastMessage = appSettings.messagesPerPartition - 1
-    val graph: Future[Done] = Source(0 until appSettings.messagesPerPartition)
-      .mapConcat { n =>
+    val results: Seq[Future[KResult[KProducerRecord]]] = (0 until appSettings.messagesPerPartition)
+      .flatMap { n =>
         (0 until appSettings.partitions).flatMap { partitionNumber =>
           val start = startMessage(n, partitionNumber)
           val end = endMessage(n, partitionNumber)
@@ -62,37 +56,29 @@ object SourceData {
             end
         }.toList
       }
-      .runWith(plainSink(producer))
+      .map { message =>
+        println(s"Producing: $message")
 
-    graph.onComplete { _ =>
-      producer.close()
-      system.terminate()
-    }
-
-    graph
-  }
-
-  def plainSink(producer: KProducer): Sink[KProducerRecord, Future[Done]] = {
-
-    Flow[KProducerRecord].mapAsync(1) { message =>
-      println(s"Producing: $message")
-
-      val r = Promise[KResult[KProducerRecord]]
-      producer.send(message, new Callback {
-        override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
-          if (exception == null) {
-            println(s"Successfully produced: $message")
-            r.success(KResult(metadata, message))
-          } else {
-            println(s"Failed to produce: $message")
-            println(exception)
-            r.failure(exception)
+        val r = Promise[KResult[KProducerRecord]]
+        producer.send(message, new Callback {
+          override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
+            if (exception == null) {
+              println(s"Successfully produced: $message")
+              r.success(KResult(metadata, message))
+            } else {
+              println(s"Failed to produce: $message")
+              println(exception)
+              r.failure(exception)
+            }
           }
-        }
-      })
+        })
 
-      r.future
-    }
-    .toMat(Sink.ignore)(Keep.right)
+        r.future
+      }
+
+    import scala.concurrent.ExecutionContext.Implicits.global
+
+    Await.result(Future.sequence(results), timeout)
+    producer.close()
   }
 }

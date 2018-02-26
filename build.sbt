@@ -2,20 +2,53 @@ import Dependencies._
 import Versions._
 import sbt.ExclusionRule
 
-lazy val `exactly-once-streams` = project.in(file("."))
+name in ThisBuild := "exactly-once-streams"
+
+organization in ThisBuild := "seglo"
+
+scalaVersion in ThisBuild := Versions.Scala_2_12_Version
+
+resolvers += "Confluent Maven" at "http://packages.confluent.io/maven/"
+
+lazy val common = (project in file("./common"))
   .settings(
-    name := "exactly-once-streams",
-    version := "1.0",
-    scalaVersion := Scala_2_12_Version,
+    name := "common",
     libraryDependencies := Seq(
-      akkaActor,
-      akkaStream,
       kafka excludeAll(ExclusionRule("org.slf4j", "slf4j-log4j12"), ExclusionRule("org.apache.zookeeper", "zookeeper")),
       curator % "test",
       scalaLogging % "test",
       logback % "test",
-      akkaTestkit % "test",
+      scalaTest % "test"
+    )
+  )
+
+lazy val `kafka-client` = (project in file("./kafka-client"))
+  .settings(Common.settings: _*)
+  .settings(
+    name := "kafka-client",
+    libraryDependencies := Seq(
+      kafka excludeAll(ExclusionRule("org.slf4j", "slf4j-log4j12"), ExclusionRule("org.apache.zookeeper", "zookeeper")),
+      curator % "test",
+      scalaLogging % "test",
+      logback % "test",
       scalaTest % "test"
     ),
     parallelExecution in Test := false
   )
+  .dependsOn(common)
+
+lazy val `reactive-kafka` = (project in file("./reactive-kafka"))
+  .settings(Common.settings: _*)
+  .settings(
+    name := "reactive-kafka",
+    libraryDependencies := Seq(
+      akkaActor,
+      akkaStream,
+      kafka excludeAll(ExclusionRule("org.slf4j", "slf4j-log4j12"), ExclusionRule("org.apache.zookeeper", "zookeeper"))
+    ),
+    parallelExecution in Test := false
+  )
+  .dependsOn(common)
+
+lazy val root = (project in file(".")).
+  aggregate(`kafka-client`, `reactive-kafka`, common)

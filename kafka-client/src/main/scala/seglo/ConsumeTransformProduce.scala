@@ -1,4 +1,4 @@
-package seglo.apps
+package seglo
 
 import java.util.Collections.singleton
 import java.util.{Locale, Properties}
@@ -9,18 +9,17 @@ import org.apache.kafka.common.errors.{OutOfOrderSequenceException, ProducerFenc
 import org.apache.kafka.common.requests.IsolationLevel
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.apache.kafka.common.{KafkaException, TopicPartition}
+import seglo.apps._
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 object ConsumeTransformProduce extends App {
 
-  def getUncommittedOffsets(consumer: KConsumer) : java.util.Map[TopicPartition, OffsetAndMetadata]  = {
-    val offsetsToCommit = new mutable.HashMap[TopicPartition, OffsetAndMetadata]()
-    consumer.assignment.forEach { topicPartition =>
-      offsetsToCommit.put(topicPartition, new OffsetAndMetadata(consumer.position(topicPartition)))
-    }
-    offsetsToCommit.toMap.asJava
+  def getUncommittedOffsets(consumer: KConsumer): java.util.Map[TopicPartition, OffsetAndMetadata] = {
+    consumer.assignment.asScala.map { topicPartition =>
+      (topicPartition, new OffsetAndMetadata(consumer.position(topicPartition)))
+    }.toMap.asJava
   }
 
   def resetToLastCommittedPositions(consumer: KConsumer): Unit = {
@@ -35,10 +34,7 @@ object ConsumeTransformProduce extends App {
   }
 
   def run(): Unit = {
-
     val appSettings = AppSettings()
-
-    val totalMessages = appSettings.partitions * appSettings.messagesPerPartition
 
     val producerProps: Properties = {
       val p = new Properties()

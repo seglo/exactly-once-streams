@@ -2,7 +2,7 @@
  * Copyright (C) 2018 Lightbend Inc. <https://www.lightbend.com>
  */
 
-package seglo.server
+package seglo
 
 import java.io.File
 import java.nio.file.{FileVisitOption, Files, Paths}

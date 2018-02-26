@@ -4,10 +4,11 @@ import java.util.Properties
 
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.StringDeserializer
-import seglo.apps.{AppSettings, KConsumer}
 
 import scala.collection.JavaConverters._
 import scala.util.Try
+
+import seglo.apps._
 
 object SinkData {
   def assert(appSettings: AppSettings): Unit = {
@@ -96,11 +97,10 @@ object SinkData {
         }
 
         (0 until partitions).map { partition =>
-          val expectedPartitionRecords = (partition, "START", "START_TRANSFORM") +:
-            (0 until messagesPerPartition).map { counter =>
-              (partition, counter.toString, (counter * 2).toString)
-            } :+
-            (partition, "END", "END_TRANSFORM")
+          val numberedMessages = (0 until messagesPerPartition).map { counter =>
+            (partition, counter.toString, (counter * 2).toString)
+          }
+          val expectedPartitionRecords = Seq((partition, "START", "START_TRANSFORM")) ++ numberedMessages ++ Seq((partition, "END", "END_TRANSFORM"))
 
           /**
             * Asserts that the generated expected records occur in order in the actual records.  Because Kafka only
