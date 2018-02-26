@@ -1,4 +1,4 @@
-import Dependencies._
+import Dependencies.{curator, _}
 import Versions._
 import sbt.ExclusionRule
 
@@ -14,7 +14,7 @@ lazy val common = (project in file("./common"))
   .settings(
     name := "common",
     libraryDependencies := Seq(
-      kafka excludeAll(ExclusionRule("org.slf4j", "slf4j-log4j12"), ExclusionRule("org.apache.zookeeper", "zookeeper")),
+      kafka,
       curator % "test",
       scalaLogging % "test",
       logback % "test",
@@ -27,7 +27,7 @@ lazy val `kafka-client` = (project in file("./kafka-client"))
   .settings(
     name := "kafka-client",
     libraryDependencies := Seq(
-      kafka excludeAll(ExclusionRule("org.slf4j", "slf4j-log4j12"), ExclusionRule("org.apache.zookeeper", "zookeeper")),
+      kafka,
       curator % "test",
       scalaLogging % "test",
       logback % "test",
@@ -44,7 +44,12 @@ lazy val `reactive-kafka` = (project in file("./reactive-kafka"))
     libraryDependencies := Seq(
       akkaActor,
       akkaStream,
-      kafka excludeAll(ExclusionRule("org.slf4j", "slf4j-log4j12"), ExclusionRule("org.apache.zookeeper", "zookeeper"))
+      reactiveKafka,
+      kafka,
+      curator % "test",
+      scalaLogging % "test",
+      logback % "test",
+      scalaTest % "test"
     ),
     parallelExecution in Test := false
   )

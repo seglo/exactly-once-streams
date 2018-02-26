@@ -1,10 +1,10 @@
 object Versions {
-  val AkkaVersion = "2.5.3"
+  val AkkaVersion = "2.5.10"
+  val ReactiveKafkaVersion = "0.19"
   val LogbackVersion = "1.2.3"
   val KafkaVersion = "1.0.0"
   val CuratorVersion = "4.0.0"
   val ScalaLoggingVersion = "3.5.0"
-  val MinitestVersion = "2.0.0"
   val ScalaTestVersion = "3.0.4"
   val JDKVersion = "1.8"
   val Scala_2_12_Version = "2.12.4"
