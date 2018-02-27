@@ -28,9 +28,25 @@ lazy val `kafka-client` = (project in file("./kafka-client"))
     name := "kafka-client",
     libraryDependencies := Seq(
       kafka,
-      curator % "test",
-      scalaLogging % "test",
-      logback % "test",
+      curator,
+      scalaLogging,
+      logback,
+      scalaTest % "test"
+    ),
+    parallelExecution in Test := false
+  )
+  .dependsOn(common)
+
+lazy val `kafka-streams` = (project in file("./kafka-streams"))
+  .settings(Common.settings: _*)
+  .settings(
+    name := "kafka-streams",
+    libraryDependencies := Seq(
+      kafkaStreams,
+      kafka,
+      curator,
+      scalaLogging,
+      logback,
       scalaTest % "test"
     ),
     parallelExecution in Test := false

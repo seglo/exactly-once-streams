@@ -1,10 +1,10 @@
-<configuration>
-    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+<configuration>                                                                
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">            
         <file>logs/app.log</file>
         <append>false</append>
-        <encoder>
+        <encoder>                                                              
             <pattern>%d{HH:mm:ss.SSS} TKD [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
+        </encoder>                                                             
     </appender>
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
@@ -26,5 +26,6 @@
     <root level="INFO">
         <appender-ref ref="ASYNC-FILE" />
         <appender-ref ref="ASYNC-STDOUT" />
-    </root>
-</configuration>
+    </root>                                                                    
+</configuration> 
+

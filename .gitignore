@@ -2,6 +2,7 @@
 ### Scala template
 *.class
 *.log
+*.log.*
 
 .idea
 target

@@ -2,15 +2,15 @@ package seglo
 
 import java.util.Properties
 
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.StringDeserializer
 
 import scala.collection.JavaConverters._
 import scala.util.Try
-
 import seglo.apps._
 
-object SinkData {
+object SinkData extends LazyLogging {
   def assert(appSettings: AppSettings): Unit = {
 
     val consumerProps: Properties = {
@@ -30,7 +30,7 @@ object SinkData {
       p
     }
 
-    println(consumerProps)
+    logger.info(s"Consumer properties " + consumerProps.toString)
 
     val consumer = new KConsumer(consumerProps, new StringDeserializer, new StringDeserializer)
     consumer.subscribe(List(appSettings.dataSinkTopic).asJava)
@@ -45,16 +45,16 @@ object SinkData {
         * http://doc.akka.io/docs/akka/snapshot/scala/stream/stream-cookbook.html#calculating-the-digest-of-a-bytestring-stream
         */
       .scanLeft(stateSeed) { (sinkState, consumerRecords) =>
-        println(s"Sink state begin with ${consumerRecords.count()} records")
+        logger.info(s"Sink state begin with ${consumerRecords.count()} records")
         val records = consumerRecords.iterator().asScala.map { record =>
-          println(s"Partition ${record.partition()}, Key ${record.key()}, Value: ${record.value()}")
+          logger.info(s"Partition ${record.partition()}, Key ${record.key()}, Value: ${record.value()}")
           (record.partition(), record.key(), record.value())
         }
         sinkState.copy(records = sinkState.records ++ records)
       }
       .find(_.assert())
       .foreach { _ =>
-        println("Assertion succeeded!")
+        logger.info("Assertion succeeded!")
         consumer.close()
       }
   }
@@ -64,7 +64,7 @@ object SinkData {
     val controlMessages = 2
 
     def assert(): Boolean = {
-      println("Assert begin")
+      logger.info(s"Assert begin. Params: partitions: $partitions, messagesPerPartition: $messagesPerPartition, controlMessages: $controlMessages")
 
       import org.scalatest._
       import Matchers._
@@ -77,7 +77,7 @@ object SinkData {
         /**
           * There should be exactly messagesPerPartition * partitionCount number of records
           */
-        println(s"Records length ${records.length}")
+        logger.info(s"Records length ${records.length}")
         records.length should equal ((messagesPerPartition + controlMessages) * partitions)
 
         val byPartition = records.groupBy { case (partition, _, _) => partition }
@@ -85,22 +85,22 @@ object SinkData {
         /**
           * There should be exactly partitionCount number of partitions
           */
-        println(s"Partitions ${byPartition.size}")
+        logger.info(s"Partitions ${byPartition.size}")
         byPartition.size should equal (partitions)
 
         /**
           * Each partition should have exactly messagesPerPartition number of messages
           */
         byPartition.map { case (_, partitionMessages) =>
-          println(s"Partition messages ${partitionMessages.length}")
+          logger.info(s"Partition messages ${partitionMessages.length}")
           partitionMessages.length should equal (messagesPerPartition + controlMessages)
         }
 
         (0 until partitions).map { partition =>
           val numberedMessages = (0 until messagesPerPartition).map { counter =>
-            (partition, counter.toString, (counter * 2).toString)
+            (partition, s"P$partition-$counter", (counter * 2).toString)
           }
-          val expectedPartitionRecords = Seq((partition, "START", "START_TRANSFORM")) ++ numberedMessages ++ Seq((partition, "END", "END_TRANSFORM"))
+          val expectedPartitionRecords = Seq((partition, s"P$partition-START", "START_TRANSFORM")) ++ numberedMessages ++ Seq((partition, s"P$partition-END", "END_TRANSFORM"))
 
           /**
             * Asserts that the generated expected records occur in order in the actual records.  Because Kafka only

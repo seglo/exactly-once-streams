@@ -3,6 +3,7 @@ package seglo
 import java.util.Collections.singleton
 import java.util.{Locale, Properties}
 
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.consumer.{ConsumerConfig, OffsetAndMetadata}
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.errors.{OutOfOrderSequenceException, ProducerFencedException}
@@ -14,7 +15,7 @@ import seglo.apps._
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-object ConsumeTransformProduce extends App {
+object ConsumeTransformProduce extends App with LazyLogging {
 
   def getUncommittedOffsets(consumer: KConsumer): java.util.Map[TopicPartition, OffsetAndMetadata] = {
     consumer.assignment.asScala.map { topicPartition =>
@@ -24,10 +25,10 @@ object ConsumeTransformProduce extends App {
 
   def resetToLastCommittedPositions(consumer: KConsumer): Unit = {
     for (topicPartition <- consumer.assignment.asScala) {
-      println(s"consumer assignment: ${topicPartition}")
+      logger.info(s"consumer assignment: ${topicPartition}")
       val offsetAndMetadata = consumer.committed(topicPartition)
       if (offsetAndMetadata != null) {
-        println(s"Resetting partition ${topicPartition.partition()} to offset ${offsetAndMetadata.offset()}")
+        logger.info(s"Resetting partition ${topicPartition.partition()} to offset ${offsetAndMetadata.offset()}")
         consumer.seek(topicPartition, offsetAndMetadata.offset)
       } else consumer.seekToBeginning(singleton(topicPartition))
     }
@@ -102,7 +103,7 @@ object ConsumeTransformProduce extends App {
         * Kill the stream after 5 attempts of empty poll results
         */
       .takeWhile { case (emptyRecordCount, _) =>
-        println(s"emptyRecordCount: $emptyRecordCount")
+        logger.info(s"emptyRecordCount: $emptyRecordCount")
         emptyRecordCount < 5
       }
       .foreach {
@@ -131,7 +132,7 @@ object ConsumeTransformProduce extends App {
 
 
             for (record <- outputRecords) {
-              println(s"Producing record. Partition ${record.partition()}, Key ${record.key()}, Value: ${record.value()}")
+              logger.info(s"Producing record. Partition ${record.partition()}, Key ${record.key()}, Value: ${record.value()}")
               producer.send(record)
 
               /**
@@ -164,12 +165,11 @@ object ConsumeTransformProduce extends App {
           } catch {
             case e@(_: ProducerFencedException | _: OutOfOrderSequenceException) =>
               // We cannot recover from these errors, so just rethrow them and let the process fail
-              println(s"A fatal transaction data integrity error was thrown.")
-              println(e)
+              logger.error(s"A fatal transaction data integrity error was thrown.", e)
               throw e
             case e: KafkaException =>
-              println(s"KafkaException: $e")
-              println(s"Aborting transaction.  Reset consumer to last committed positions.")
+              logger.error(s"KafkaException caught: ${e.getMessage()}")
+              logger.info(s"Aborting transaction.  Reset consumer to last committed positions.")
               producer.abortTransaction()
               resetToLastCommittedPositions(consumer)
           }

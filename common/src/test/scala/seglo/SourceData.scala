@@ -2,6 +2,7 @@ package seglo
 
 import java.util.Properties
 
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.producer.{Callback, ProducerConfig, RecordMetadata}
 import org.apache.kafka.common.serialization.StringSerializer
 import seglo.apps._
@@ -9,7 +10,7 @@ import seglo.apps._
 import scala.concurrent.duration.{FiniteDuration, MINUTES}
 import scala.concurrent.{Await, Future, Promise}
 
-object SourceData {
+object SourceData extends LazyLogging {
   val timeout = FiniteDuration(1, MINUTES)
 
   def populate(appSettings: AppSettings): Unit = {
@@ -35,12 +36,12 @@ object SourceData {
 
     val startMessage = (n: Int, p: Int) =>
       if (n == 0)
-        Seq(new KProducerRecord(appSettings.dataSourceTopic, p, "START", "START"))
+        Seq(new KProducerRecord(appSettings.dataSourceTopic, p, s"P$p-START", "START"))
       else Nil
 
     val endMessage = (n: Int, p: Int) =>
       if (n == appSettings.messagesPerPartition - 1)
-        Seq(new KProducerRecord(appSettings.dataSourceTopic, p, "END", "END"))
+        Seq(new KProducerRecord(appSettings.dataSourceTopic, p, s"P$p-END", "END"))
       else Nil
 
     val producer = new KProducer(properties, new StringSerializer, new StringSerializer)
@@ -52,22 +53,21 @@ object SourceData {
           val end = endMessage(n, partitionNumber)
 
           start ++
-            Seq(new KProducerRecord(appSettings.dataSourceTopic, partitionNumber, n.toString, n.toString)) ++
+            Seq(new KProducerRecord(appSettings.dataSourceTopic, partitionNumber, s"P$partitionNumber-$n", n.toString)) ++
             end
         }.toList
       }
       .map { message =>
-        println(s"Producing: $message")
+        logger.info(s"Producing: $message")
 
         val r = Promise[KResult[KProducerRecord]]
         producer.send(message, new Callback {
           override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
             if (exception == null) {
-              println(s"Successfully produced: $message")
+              logger.info(s"Successfully produced: $message")
               r.success(KResult(metadata, message))
             } else {
-              println(s"Failed to produce: $message")
-              println(exception)
+              logger.error(s"Failed to produce: $message", exception)
               r.failure(exception)
             }
           }
